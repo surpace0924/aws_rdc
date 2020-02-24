@@ -1,22 +1,31 @@
 #!/usr/bin/env python
+import roslib
 import rospy
-import rosparam
-from std_msgs.msg import String
+import math
+import tf
+import geometry_msgs.msg
+import turtlesim.srv
+from geometry_msgs.msg import Twist
 
-def talker():
-    rospy.init_node('my_node')
-    word = rospy.get_pmaram("~content", "default")
-    pub = rospy.Publisher('chatter', String, queue_size=10)
+def callback(vel):
+    rospy.loginfo("cmd_vel [%.2f %.2f]", vel.linear.x, vel.angular.z)
+    now = rospy.Time.now()
+    rospy.loginfo("now: %f", now.to_sec())
 
-    r = rospy.Rate(1) # 10hz
-    while not rospy.is_shutdown():
-        str = "send: %s" % word
-        rospy.loginfo(str)
-        pub.publish(str)
-        r.sleep()
 
 if __name__ == '__main__':
-    try:
-        talker()
-    except rospy.ROSInterruptException: pass
+    rospy.init_node('my_node')
+    rospy.Subscriber("/cmd_vel", Twist, callback)
 
+    listener = tf.TransformListener()
+
+    rate = rospy.Rate(10.0)
+    while not rospy.is_shutdown():
+        try:
+            (linear, angular) = listener.lookupTransform('/map', '/base_footprint', rospy.Time(0))
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            continue
+
+        rospy.loginfo("pose [%.2f %.2f %.2f]", linear[0], linear[1], linear[2])
+
+        rate.sleep()
