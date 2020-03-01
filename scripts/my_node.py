@@ -13,6 +13,7 @@ from geometry_msgs.msg import PoseArray
 from geometry_msgs.msg import Quaternion
 from geometry_msgs.msg import Vector3
 from visualization_msgs.msg import Marker
+import numpy as np
 
 class Trajectory:
     def __init__(self, x, y):
@@ -34,9 +35,10 @@ def euler_to_quaternion(euler):
 
 
 def callback(vel):
-    rospy.loginfo("cmd_vel [%.2f %.2f]", vel.linear.x, vel.angular.z)
+    # rospy.loginfo("cmd_vel [%.2f %.2f]", vel.linear.x, vel.angular.z)
     now = rospy.Time.now()
-    rospy.loginfo("now: %f", now.to_sec())
+    # rospy.loginfo("now: %f", now.to_sec())
+
 
 
 if __name__ == '__main__':
@@ -51,6 +53,16 @@ if __name__ == '__main__':
     cy = [2 * math.sin(ix) for ix in t]
     trajectory = Trajectory(cx,cy)
 
+    file_name = "/home/ryoga/catkin_ws/src/aws_rdc/scripts/route.csv"
+    p2 = np.genfromtxt(file_name, delimiter=',', filling_values = 0)
+
+    points = PoseArray()
+    for i in range(len(p2)/2):
+        pose = Pose()
+        pose.position.x = p2[i][0]
+        pose.position.y = p2[i][1]
+        pose.orientation = euler_to_quaternion(Vector3(0, 0, 0))
+        points.poses.append(pose)
 
     rate = rospy.Rate(10.0)
     while not rospy.is_shutdown():
@@ -66,19 +78,11 @@ if __name__ == '__main__':
             twist.angular.z += 2
         pub_vel.publish(twist)
 
-        points = PoseArray()
-        pose = Pose()
         points.header.frame_id = 'map'
         points.header.stamp = rospy.Time.now()
-
-        pose.position.x = 0.5
-        pose.position.y = 0.5
-        pose.orientation = euler_to_quaternion(Vector3(0, 0, 0))
-        points.poses.append(pose)
-
         pub_trajectory.publish(points)
 
-        rospy.loginfo("pose [%.2f %.2f %.2f]", linear[0], linear[1], linear[2])
+        # rospy.loginfo("pose [%.2f %.2f %.2f]", linear[0], linear[1], linear[2])
 
         rate.sleep()
 
