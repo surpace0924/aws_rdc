@@ -11,8 +11,8 @@ Panels:
         - /Local Map1/Polygon1
         - /Local Map1/Costmap1
         - /Local Map1/Planner1
-        - /Amcl Particles1
         - /TF2/Frames1
+        - /Odometry1/Shape1
       Splitter Ratio: 0.5
     Tree Height: 531
   - Class: rviz/Selection
@@ -352,6 +352,56 @@ Visualization Manager:
                   {}
       Update Interval: 0
       Value: true
+    - Angle Tolerance: 0.100000001
+      Class: rviz/Odometry
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: true
+        Position:
+          Alpha: 0.300000012
+          Color: 204; 51; 204
+          Scale: 1
+          Value: true
+        Value: false
+      Enabled: true
+      Keep: 100
+      Name: Odometry
+      Position Tolerance: 0.100000001
+      Shape:
+        Alpha: 1
+        Axes Length: 1
+        Axes Radius: 0.100000001
+        Color: 0; 0; 255
+        Head Length: 0.0299999993
+        Head Radius: 0.0299999993
+        Shaft Length: 0.0500000007
+        Shaft Radius: 0.00999999978
+        Value: Arrow
+      Topic: /odom
+      Unreliable: false
+      Value: true
+    - Alpha: 1
+      Arrow Length: 0.300000012
+      Axes Length: 0.300000012
+      Axes Radius: 0.00999999978
+      Class: rviz/PoseArray
+      Color: 255; 25; 0
+      Enabled: true
+      Head Length: 0.0700000003
+      Head Radius: 0.0299999993
+      Name: PoseArray
+      Shaft Length: 0.230000004
+      Shaft Radius: 0.00999999978
+      Shape: Arrow (Flat)
+      Topic: /trajectory_arry
+      Unreliable: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -382,11 +432,11 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Scale: 129.787506
+      Scale: 130.037155
       Target Frame: <Fixed Frame>
       Value: TopDownOrtho (rviz)
-      X: 2.71351671
-      Y: 1.26005518
+      X: 2.86253667
+      Y: 0.692330658
     Saved: ~
 Window Geometry:
   Displays:
