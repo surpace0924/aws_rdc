@@ -9,6 +9,7 @@ import turtlesim.srv
 from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Point
 from geometry_msgs.msg import Pose
+from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import PoseArray
 from geometry_msgs.msg import Quaternion
 from geometry_msgs.msg import Vector3
@@ -46,6 +47,7 @@ if __name__ == '__main__':
     rospy.Subscriber("/cmd_vel", Twist, callback)
     pub_vel = rospy.Publisher('cmd_vel', Twist, queue_size=1)
     pub_trajectory = rospy.Publisher('trajectory_arry', PoseArray, queue_size=100)
+    pub_terget_pos = rospy.Publisher('terget_pos', PoseStamped, queue_size=100)
     listener = tf.TransformListener()
 
     t = np.arange(0, 3.14*2, 0.1)
@@ -61,9 +63,9 @@ if __name__ == '__main__':
         pose = Pose()
         pose.position.x = p2[i][0]
         pose.position.y = p2[i][1]
-        pose.orientation = euler_to_quaternion(Vector3(0, 0, 0))
         points.poses.append(pose)
 
+    count = 0
     rate = rospy.Rate(10.0)
     while not rospy.is_shutdown():
         try:
@@ -82,7 +84,22 @@ if __name__ == '__main__':
         points.header.stamp = rospy.Time.now()
         pub_trajectory.publish(points)
 
-        # rospy.loginfo("pose [%.2f %.2f %.2f]", linear[0], linear[1], linear[2])
+        terget_pos = PoseStamped()
+        terget_pos.header.frame_id = 'map'
+        terget_pos.header.stamp = rospy.Time.now()
+        if count < len(p2)/2:
+            terget_pos.pose.position.x = p2[count][0]
+            terget_pos.pose.position.y = p2[count][1]
+        else:
+            terget_pos.pose.position.x = p2[len(p2)/2][0]
+            terget_pos.pose.position.y = p2[len(p2)/2][1]
 
+        points.poses.append(pose)
+        pub_terget_pos.publish(terget_pos)
+
+
+
+        # rospy.loginfo("pose [%.2f %.2f %.2f]", linear[0], linear[1], linear[2])
+        count += 1
         rate.sleep()
 

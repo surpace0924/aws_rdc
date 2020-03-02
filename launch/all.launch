@@ -31,4 +31,5 @@
           args="-d $(find aws_rdc)/rviz/rviz_setting.rviz"/>
   </group>
 
+  <!-- <node pkg="aws_rdc" name="my_node.py" type="my_node.py"/> -->
 </launch>
