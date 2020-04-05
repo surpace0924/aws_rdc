@@ -22,13 +22,6 @@ def euler_to_quaternion(euler):
     q = tf.transformations.quaternion_from_euler(euler.x, euler.y, euler.z)
     return gm.Quaternion(x=q[0], y=q[1], z=q[2], w=q[3])
 
-
-def callback(vel):
-    # rospy.loginfo("cmd_vel [%.2f %.2f]", vel.linear.x, vel.angular.z)
-    now = rospy.Time.now()
-    # rospy.loginfo("now: %f", now.to_sec())
-
-
 class PurePursuitControl:
     def __init__(self, trajectory):
             self.trajectory = trajectory
@@ -70,7 +63,8 @@ class PurePursuitControl:
 
 if __name__ == '__main__':
     rospy.init_node('my_node')
-    rospy.Subscriber("/cmd_vel", gm.Twist, callback)
+
+    pub_initialpose = rospy.Publisher('initialpose', gm.PoseWithCovarianceStamped, queue_size=100)
     pub_vel = rospy.Publisher('cmd_vel', gm.Twist, queue_size=1)
     pub_trajectory = rospy.Publisher('trajectory_arry', gm.PoseArray, queue_size=100)
     pub_terget_pos = rospy.Publisher('terget_pos', gm.PoseStamped, queue_size=100)
@@ -80,6 +74,7 @@ if __name__ == '__main__':
     file_name = os.path.dirname(__file__) + "/route.csv"
     p2 = np.genfromtxt(file_name, delimiter=',', filling_values = 0)
 
+    # 読み込んだ経路データをPoseArray型に変換
     points = gm.PoseArray()
     for i in range(len(p2)):
         pose = gm.Pose()
@@ -89,10 +84,20 @@ if __name__ == '__main__':
 
     ppc = PurePursuitControl(p2)
 
+    init_pose = gm.PoseWithCovarianceStamped()
+    init_pose.header.frame_id = 'map'
+    init_pose.header.stamp = rospy.Time.now()
+    # init_pose.pose.pose.position.x = 0
+    # init_pose.pose.pose.position.y = 0
+    # init_pose.pose.pose.position.z = 0
+    init_pose.pose.pose.orientation.w = 1
+    # init_pose.pose.covariance
+
     count = 0
-    index = 0
     rate = rospy.Rate(50.0)
     while not rospy.is_shutdown():
+
+        # pub_initialpose.publish(init_pose)
         try:
             (linear, angular) = listener.lookupTransform('/map', '/base_footprint', rospy.Time(0))
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
@@ -105,9 +110,9 @@ if __name__ == '__main__':
         terget_pos = gm.PoseStamped()
         terget_pos.header.frame_id = 'map'
         terget_pos.header.stamp = rospy.Time.now()
-        if index < len(p2):
-            terget_pos.pose.position.x = p2[index][0]
-            terget_pos.pose.position.y = p2[index][1]
+        if count < len(p2):
+            terget_pos.pose.position.x = p2[count][0]
+            terget_pos.pose.position.y = p2[count][1]
         else:
             terget_pos.pose.position.x = p2[len(p2)-1][0]
             terget_pos.pose.position.y = p2[len(p2)-1][1]
@@ -115,18 +120,16 @@ if __name__ == '__main__':
         points.poses.append(pose)
         pub_terget_pos.publish(terget_pos)
 
-
-
         now_pose = [0,0,0]
         now_pose[0] = linear[0]
         now_pose[1] = linear[1]
         now_pose[2] = angular[2]
 
         twist = gm.Twist()
-        if index < len(p2):
-            twist.linear.x = ppc.getLiner(now_pose, index)
-            twist.angular.z = ppc.getOmega(now_pose, index)
-            if ppc.getDistance(now_pose, index) < 0.15:
+        if count < len(p2):
+            twist.linear.x = ppc.getLiner(now_pose, count)
+            twist.angular.z = ppc.getOmega(now_pose, count)
+            if ppc.getDistance(now_pose, count) < 0.15:
                 twist.linear.x = 0
                 twist.angular.z = 0
         else:
@@ -139,6 +142,5 @@ if __name__ == '__main__':
 
         # rospy.loginfo("pose [%.2f %.2f %.2f]", linear[0], linear[1], linear[2])
         count += 1
-        index = count
         rate.sleep()
 
