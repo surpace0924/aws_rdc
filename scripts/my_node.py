@@ -43,7 +43,7 @@ class PurePursuitControl:
         return liner
 
     def getOmega(self, pose, ind):
-        Kp = 10.0
+        Kp = 5.0
         Ki = 0.0
         Kd = -0.0
 
@@ -91,6 +91,8 @@ if __name__ == '__main__':
     init_pose.pose.pose.orientation.w = 1
     pub_initialpose.publish(init_pose)
     rospy.sleep(5.0)
+    print("Start")
+    rospy.sleep(0.2)
 
     count = 0
     rate = rospy.Rate(50.0)
@@ -124,7 +126,7 @@ if __name__ == '__main__':
 
         twist = gm.Twist()
         if count < len(p2):
-            twist.linear.x = ppc.getLiner(now_pose, count)
+            twist.linear.x = 0.22
             twist.angular.z = ppc.getOmega(now_pose, count)
             if ppc.getDistance(now_pose, count) < 0.05:
                 twist.linear.x = 0
@@ -133,7 +135,7 @@ if __name__ == '__main__':
             twist.linear.x = 0
             twist.angular.z = 0
 
-        if now_pose[0] > 5 and is_finish == False:
+        if ((5 - now_pose[0])**2 + (1.3 - now_pose[1])**2 <= 0.1) and is_finish == False:
             print(count/50.0)
             is_finish = True
 

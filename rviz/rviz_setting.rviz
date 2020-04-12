@@ -392,7 +392,7 @@ Visualization Manager:
       Axes Radius: 0.00999999978
       Class: rviz/PoseArray
       Color: 255; 0; 127
-      Enabled: true
+      Enabled: false
       Head Length: 0
       Head Radius: 0
       Name: PoseArray
@@ -401,7 +401,7 @@ Visualization Manager:
       Shape: Arrow (3D)
       Topic: /trajectory_arry
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Axes Length: 1
       Axes Radius: 0.100000001
