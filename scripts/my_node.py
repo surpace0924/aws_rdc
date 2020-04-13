@@ -16,12 +16,18 @@ from gazebo_msgs.srv import SetModelState, GetModelState
 MAX_SPD_LINEAR = 0.225  # [m/s]
 MAX_SPD_ANGULAR = 2.84  # [rad/s]
 
+# 制御周期
+LOOP_HZ = 30.0
+
 def constrain(x, min, max):
     if x < min:
         x = min
     elif x > max:
         x = max
     return x
+
+def constrainAbs(x, max):
+    return constrain(x, -max, max)
 
 # 自己位置を初期化
 def initPose():
@@ -38,7 +44,7 @@ class PurePursuitControl:
     def __init__(self, trajectory):
         self.trajectory = trajectory
         self.kp_linear = 2.0
-        self.kp_angular = 5.0
+        self.kp_angular = 6.0
 
     # リファレンス点までの距離
     def getDistance(self, pose, ind):
@@ -91,7 +97,7 @@ if __name__ == '__main__':
     rospy.sleep(0.2)
 
     count = 0
-    rate = rospy.Rate(50.0)
+    rate = rospy.Rate(LOOP_HZ)
     while not rospy.is_shutdown():
         try:
             (linear, angular) = listener.lookupTransform('/map', '/base_footprint', rospy.Time(0))
@@ -124,16 +130,15 @@ if __name__ == '__main__':
         if count < len(p2):
             twist.linear.x = ppc.getLinear(now_pose, count)
             twist.angular.z = ppc.getAngular(now_pose, count)
-            if ppc.getDistance(now_pose, count) < 0.05:
-                twist.linear.x = 0
-                twist.angular.z = 0
         else:
             twist.linear.x = 0
             twist.angular.z = 0
+            pub_vel.publish(twist)
+            break
 
         # 機体性能以上の速度が出ないように抑制
-        twist.linear.x = constrain(twist.linear.x, -MAX_SPD_LINEAR, MAX_SPD_LINEAR)
-        twist.angular.z = constrain(twist.angular.z, -MAX_SPD_ANGULAR, MAX_SPD_ANGULAR)
+        twist.linear.x = constrainAbs(twist.linear.x, MAX_SPD_LINEAR)
+        twist.angular.z = constrainAbs(twist.angular.z, MAX_SPD_ANGULAR)
 
         # 速度司令
         pub_vel.publish(twist)
@@ -148,7 +153,7 @@ if __name__ == '__main__':
         # ゴール判定
         GOAL_TOLERANCE = 0.1
         if (distance <= GOAL_TOLERANCE) and is_goal == False:
-            print(count/50.0)
+            print(count / LOOP_HZ)
             is_goal = True
 
         count += 1
