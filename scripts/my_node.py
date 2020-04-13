@@ -10,6 +10,11 @@ import tf
 import turtlesim.srv
 import numpy as np
 import geometry_msgs.msg as gm
+from gazebo_msgs.srv import SetModelState, GetModelState
+
+# 機体性能最高速度
+MAX_SPD_LINEAR = 0.225  # [m/s]
+MAX_SPD_ANGULAR = 2.84  # [rad/s]
 
 def constrain(x, min, max):
     if x < min:
@@ -18,57 +23,53 @@ def constrain(x, min, max):
         x = max
     return x
 
-def euler_to_quaternion(euler):
-    q = tf.transformations.quaternion_from_euler(euler.x, euler.y, euler.z)
-    return gm.Quaternion(x=q[0], y=q[1], z=q[2], w=q[3])
+# 自己位置を初期化
+def initPose():
+    pub_initialpose = rospy.Publisher('initialpose', gm.PoseWithCovarianceStamped, queue_size=100)
+    rospy.sleep(1.0)
+    init_pose = gm.PoseWithCovarianceStamped()
+    init_pose.header.frame_id = 'map'
+    init_pose.header.stamp = rospy.Time.now()
+    init_pose.pose.pose.orientation.w = 1
+    pub_initialpose.publish(init_pose)
 
+# 経路追従
 class PurePursuitControl:
     def __init__(self, trajectory):
-            self.trajectory = trajectory
-            self.integral = 0
-            self.error_angle = [0, 0]
+        self.trajectory = trajectory
+        self.kp_linear = 2.0
+        self.kp_angular = 5.0
 
+    # リファレンス点までの距離
     def getDistance(self, pose, ind):
         tx = self.trajectory[ind][0]
         ty = self.trajectory[ind][1]
-        L = math.sqrt((tx - pose[0])**2 + (ty - pose[1])**2)
-        return L
+        return math.sqrt((tx - pose[0])**2 + (ty - pose[1])**2)
 
-    def getLiner(self, pose, ind):
+    # リファレンスとのなす角
+    def getAngle(self, pose, ind):
         tx = self.trajectory[ind][0]
         ty = self.trajectory[ind][1]
-        L = math.sqrt((tx - pose[0])**2 + (ty - pose[1])**2)
-        Kp = 2.0
-        liner = Kp * L
-        return liner
+        return math.atan2(ty - pose[1], tx - pose[0]) - pose[2]
 
-    def getOmega(self, pose, ind):
-        Kp = 5.0
-        Ki = 0.0
-        Kd = -0.0
+    # 並進速度
+    def getLinear(self, pose, ind):
+        return self.kp_linear * self.getDistance(pose, ind)
 
-        tx = self.trajectory[ind][0]
-        ty = self.trajectory[ind][1]
+    # 回転速度
+    def getAngular(self, pose, ind):
+        return  self.kp_angular * self.getAngle(pose, ind)
 
-        self.error_angle[0] = math.atan2(ty - pose[1], tx - pose[0]) - pose[2]
-
-        self.integral += self.error_angle[0]
-
-        p = Kp * self.error_angle[0]
-        i = Ki * self.integral
-        d = Kd * (self.error_angle[1] - self.error_angle[0])
-        self.error_angle[1] = self.error_angle[0]
-        return p + d
-
-is_finish = False
+is_goal = False
 if __name__ == '__main__':
     rospy.init_node('my_node')
 
-    pub_initialpose = rospy.Publisher('initialpose', gm.PoseWithCovarianceStamped, queue_size=100)
     pub_vel = rospy.Publisher('cmd_vel', gm.Twist, queue_size=1)
-    pub_trajectory = rospy.Publisher('trajectory_arry', gm.PoseArray, queue_size=100)
     pub_terget_pos = rospy.Publisher('terget_pos', gm.PoseStamped, queue_size=100)
+    pub_trajectory = rospy.Publisher('trajectory_arry', gm.PoseArray, queue_size=100)
+
     listener = tf.TransformListener()
+    gazebo_model_get_state = rospy.ServiceProxy('/gazebo/get_model_state', GetModelState)
 
     # 現在の同じディレクトリ内の「route.csv」を読み込み
     file_name = os.path.dirname(__file__) + "/route.csv"
@@ -84,13 +85,8 @@ if __name__ == '__main__':
 
     ppc = PurePursuitControl(p2)
 
-    rospy.sleep(2.0)
-    init_pose = gm.PoseWithCovarianceStamped()
-    init_pose.header.frame_id = 'map'
-    init_pose.header.stamp = rospy.Time.now()
-    init_pose.pose.pose.orientation.w = 1
-    pub_initialpose.publish(init_pose)
-    rospy.sleep(5.0)
+    initPose()
+    rospy.sleep(3.0)
     print("Start")
     rospy.sleep(0.2)
 
@@ -126,8 +122,8 @@ if __name__ == '__main__':
 
         twist = gm.Twist()
         if count < len(p2):
-            twist.linear.x = ppc.getLiner(now_pose, count)
-            twist.angular.z = ppc.getOmega(now_pose, count)
+            twist.linear.x = ppc.getLinear(now_pose, count)
+            twist.angular.z = ppc.getAngular(now_pose, count)
             if ppc.getDistance(now_pose, count) < 0.05:
                 twist.linear.x = 0
                 twist.angular.z = 0
@@ -135,15 +131,26 @@ if __name__ == '__main__':
             twist.linear.x = 0
             twist.angular.z = 0
 
-        if (math.sqrt((5 - now_pose[0])**2 + (1.3 - now_pose[1])**2) <= 0.1) and is_finish == False:
-            print(count/50.0)
-            is_finish = True
+        # 機体性能以上の速度が出ないように抑制
+        twist.linear.x = constrain(twist.linear.x, -MAX_SPD_LINEAR, MAX_SPD_LINEAR)
+        twist.angular.z = constrain(twist.angular.z, -MAX_SPD_ANGULAR, MAX_SPD_ANGULAR)
 
-        twist.linear.x = constrain(twist.linear.x, -0.225, 0.225)
-        twist.angular.z = constrain(twist.angular.z, -2.84, 2.84)
+        # 速度司令
         pub_vel.publish(twist)
 
-        # rospy.loginfo("pose [%.2f %.2f %.2f]", linear[0], linear[1], linear[2])
+        # ゴールまでの距離を算出
+        GOAL_POS_X = 5.0
+        GOAL_POS_Y = 1.3
+        model_state = gazebo_model_get_state("turtlebot3_burger", 'world')
+        gazebo_pos = model_state.pose.position
+        distance = math.sqrt((GOAL_POS_X - gazebo_pos.x)**2 + (GOAL_POS_Y - gazebo_pos.y)**2)
+
+        # ゴール判定
+        GOAL_TOLERANCE = 0.1
+        if (distance <= GOAL_TOLERANCE) and is_goal == False:
+            print(count/50.0)
+            is_goal = True
+
         count += 1
         rate.sleep()
 
