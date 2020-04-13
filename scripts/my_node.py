@@ -126,7 +126,7 @@ if __name__ == '__main__':
 
         twist = gm.Twist()
         if count < len(p2):
-            twist.linear.x = 0.22
+            twist.linear.x = ppc.getLiner(now_pose, count)
             twist.angular.z = ppc.getOmega(now_pose, count)
             if ppc.getDistance(now_pose, count) < 0.05:
                 twist.linear.x = 0
@@ -135,11 +135,11 @@ if __name__ == '__main__':
             twist.linear.x = 0
             twist.angular.z = 0
 
-        if ((5 - now_pose[0])**2 + (1.3 - now_pose[1])**2 <= 0.1) and is_finish == False:
+        if (math.sqrt((5 - now_pose[0])**2 + (1.3 - now_pose[1])**2) <= 0.1) and is_finish == False:
             print(count/50.0)
             is_finish = True
 
-        twist.linear.x = constrain(twist.linear.x, -0.22, 0.22)
+        twist.linear.x = constrain(twist.linear.x, -0.225, 0.225)
         twist.angular.z = constrain(twist.angular.z, -2.84, 2.84)
         pub_vel.publish(twist)
 
