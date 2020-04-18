@@ -3,7 +3,7 @@
   <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
   <arg name="open_rviz" default="true"/>
   <arg name="move_forward_only" default="false"/>
-  <arg name="map_file" default="$(find aws_rdc)/maps/map_3.yaml"/>
+  <arg name="map_file" default="$(find aws_rdc_pre)/maps/map_3.yaml"/>
 
   <!-- world -->
   <include file="$(find delivery_challenge_simulation)/launch/create_stage.launch"/>
@@ -28,7 +28,7 @@
   <!-- rviz -->
   <group if="$(arg open_rviz)">
     <node pkg="rviz" type="rviz" name="rviz" required="true"
-          args="-d $(find aws_rdc)/rviz/rviz_setting.rviz"/>
+          args="-d $(find aws_rdc_pre)/rviz/rviz_setting.rviz"/>
   </group>
 
   <!-- <node pkg="aws_rdc" name="my_node.py" type="my_node.py"/> -->
