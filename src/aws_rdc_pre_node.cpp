@@ -8,7 +8,7 @@
 
 #include <string>
 
-#include "../../MyStdLib/MyStdLib.h"
+#include "./../../MyStdLib/MyStdLib/MyStdLib.h"
 #include "path.h"
 
 // 機体性能最高速度
@@ -41,11 +41,11 @@ int main(int argc, char **argv)
 
     myStd::PID<double> pid_linear(2.0, 0.0, 0.0);
     pid_linear.setMode(myStd::PID<double>::Mode::pPID);
-    pid_linear.setSaturationAbs(MAX_SPD_LINEAR);
+    pid_linear.setSaturation(-MAX_SPD_LINEAR, MAX_SPD_LINEAR);
 
-    myStd::PID<double> pid_angular(0.029, 0.0, 0.0);
+    myStd::PID<double> pid_angular(6.0, 0.0, 0.0);
     pid_angular.setMode(myStd::PID<double>::Mode::pPID);
-    pid_angular.setSaturationAbs(MAX_SPD_ANGULAR);
+    pid_angular.setSaturation(-MAX_SPD_ANGULAR, MAX_SPD_ANGULAR);
 
     myStd::PurePursuitControl<double, myStd::PID<double>> ppc(path);
 

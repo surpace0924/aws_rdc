@@ -50,5 +50,6 @@
         "utility": "cpp",
         "typeindex": "cpp",
         "typeinfo": "cpp"
-    }
+    },
+    "python.formatting.provider": "autopep8"
 }

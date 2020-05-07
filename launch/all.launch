@@ -31,5 +31,6 @@
           args="-d $(find aws_rdc_pre)/rviz/rviz_setting.rviz"/>
   </group>
 
-  <node pkg="aws_rdc_pre" name="aws_rdc_pre_node" type="aws_rdc_pre_node"/>
+  <!-- <node pkg="aws_rdc_pre" name="aws_rdc_pre_node" type="aws_rdc_pre_node"/> -->
+  <node pkg="aws_rdc_pre" name="my_node" type="my_node.py" output="screen"/>
 </launch>
