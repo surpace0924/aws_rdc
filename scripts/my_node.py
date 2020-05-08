@@ -9,42 +9,87 @@ import math
 import numpy as np
 import tf
 import turtlesim.srv
+import std_msgs
+import std_msgs.msg as sm
+import geometry_msgs
 import geometry_msgs.msg as gm
+import nav_msgs.msg
+import nav_msgs.msg as nm
 from gazebo_msgs.srv import SetModelState, GetModelState
 
 
 # 機体性能最高速度
-MAX_SPD_LINEAR = 0.225  # [m/s]
+MAX_SPD_LINEAR = 0.22  # [m/s]
 MAX_SPD_ANGULAR = 2.84  # [rad/s]
 
 # 制御周期
 LOOP_HZ = 30.0
 
-is_goal = False
 def main():
     rospy.init_node('my_node')
     pub_vel = rospy.Publisher('cmd_vel', gm.Twist, queue_size=1)
     pub_terget_pos = rospy.Publisher('terget_pos', gm.PoseStamped, queue_size=100)
-    pub_trajectory = rospy.Publisher('trajectory_arry', gm.PoseArray, queue_size=100)
-
+    pub_trajectory = rospy.Publisher('my_path', nm.Path, queue_size=100)
+    pub_Time = rospy.Publisher('game_time', sm.Float32, queue_size=100)
     listener = tf.TransformListener()
-    gazebo_model_get_state = rospy.ServiceProxy('/gazebo/get_model_state', GetModelState)
 
-    # 現在の同じディレクトリ内の「route.csv」を読み込み
-    file_name = os.path.dirname(__file__) + "/route.csv"
-    p2 = np.genfromtxt(file_name, delimiter=',', filling_values=0)
+    path = getPath()
+    ppc = createPPC(path)
 
-    path = []
+    initPose()
 
-    # 読み込んだ経路データをPoseArray型に変換
-    points = gm.PoseArray()
-    for i in range(len(p2)):
-        pose = gm.Pose()
-        pose.position.x = p2[i][0]
-        pose.position.y = p2[i][1]
-        points.poses.append(pose)
-        path.append(Pose2D(p2[i][0], p2[i][1], 0))
+    count = 0
+    rate = rospy.Rate(LOOP_HZ)
+    while not rospy.is_shutdown():
+        # 現在時間の取得
+        now_time = sm.Float32()
+        now_time.data = count/LOOP_HZ
 
+        # 現在位置の取得
+        try:
+            (linear, angular) = listener.lookupTransform('/map', '/base_footprint', rospy.Time(0))
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            continue
+        now_pose = Pose2D(linear[0], linear[1], angular[2])
+
+        # 制御量の取得
+        ppc.update(count, now_pose, 1 / LOOP_HZ)
+        output = ppc.getControlVal()
+
+        # 速度司令
+        pub_vel.publish(RosMsgConverter.toRosTwist(output))
+        pub_trajectory.publish(RosMsgConverter.toRosPath(path, "map"))
+        pub_terget_pos.publish(RosMsgConverter.toRosPoseStamped(path[count], "map"))
+        pub_Time.publish(now_time)
+
+        # 終了判定
+        count += 1
+        if count >= len(path) or isGoal():
+            print("Goal " + str(now_time.data) + "[s]")
+            pub_vel.publish(RosMsgConverter.toRosTwist(Pose2D(0, 0, 0)))
+            return
+
+        rate.sleep()
+
+
+########## Function ##########
+
+
+# 自己位置を初期化
+def initPose():
+    pub_initialpose = rospy.Publisher('initialpose', gm.PoseWithCovarianceStamped, queue_size=100)
+    rospy.sleep(1.0)
+    init_pose = gm.PoseWithCovarianceStamped()
+    init_pose.header.frame_id = 'map'
+    init_pose.header.stamp = rospy.Time.now()
+    init_pose.pose.pose.orientation.w = 1
+    pub_initialpose.publish(init_pose)
+    rospy.sleep(3.0)
+    print("Start")
+    rospy.sleep(0.2)
+
+
+def createPPC(path):
     pid_linear_param = PID.param_t()
     pid_linear_param.gain = PID.gain_t(2, 0, 0)
     pid_linear = PID(pid_linear_param)
@@ -58,78 +103,35 @@ def main():
     ppc_param = PPC.param_t()
     ppc_param.fbc_linear = pid_linear
     ppc_param.fbc_angular = pid_angular
-    ppc = PPC(ppc_param, path)
+    return PPC(ppc_param, path)
 
-    initPose()
-    rospy.sleep(3.0)
-    print("Start")
-    rospy.sleep(0.2)
 
-    count = 0
-    rate = rospy.Rate(LOOP_HZ)
-    while not rospy.is_shutdown():
-        try:
-            (linear, angular) = listener.lookupTransform('/map', '/base_footprint', rospy.Time(0))
-        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            continue
+def getPath():
+    # 現在の同じディレクトリ内の「route.csv」を読み込み
+    file_name = os.path.dirname(__file__) + "/route.csv"
+    p2 = np.genfromtxt(file_name, delimiter=',', filling_values=0)
 
-        points.header.frame_id = 'map'
-        points.header.stamp = rospy.Time.now()
-        pub_trajectory.publish(points)
+    path = []
+    for i in range(len(p2)):
+        path.append(Pose2D(p2[i][0], p2[i][1], 0))
 
-        terget_pos = gm.PoseStamped()
-        terget_pos.header.frame_id = 'map'
-        terget_pos.header.stamp = rospy.Time.now()
-        if count < len(p2):
-            terget_pos.pose.position.x = p2[count][0]
-            terget_pos.pose.position.y = p2[count][1]
-        else:
-            terget_pos.pose.position.x = p2[len(p2)-1][0]
-            terget_pos.pose.position.y = p2[len(p2)-1][1]
+    return path
 
-        points.poses.append(pose)
-        pub_terget_pos.publish(terget_pos)
 
-        now_pose = [0,0,0]
-        now_pose[0] = linear[0]
-        now_pose[1] = linear[1]
-        now_pose[2] = angular[2]
+def isGoal():
+    gazebo_model_get_state = rospy.ServiceProxy('/gazebo/get_model_state', GetModelState)
 
-        twist = gm.Twist()
-        if count < len(p2):
-            p = Pose2D(now_pose[0], now_pose[1], now_pose[2])
-            ppc.update(count, p, 1 / LOOP_HZ)
-            output = ppc.getControlVal()
-            twist.linear.x = output.x
-            twist.angular.z = output.theta
-        else:
-            twist.linear.x = 0
-            twist.angular.z = 0
-            pub_vel.publish(twist)
-            break
+    # ゴールまでの距離を算出
+    GOAL_POS_X = 5.0
+    GOAL_POS_Y = 1.3
+    model_state = gazebo_model_get_state("turtlebot3_burger", 'world')
+    gazebo_pos = model_state.pose.position
+    distance = math.sqrt((GOAL_POS_X - gazebo_pos.x)**2 + (GOAL_POS_Y - gazebo_pos.y)**2)
 
-        # 機体性能以上の速度が出ないように抑制
-        twist.linear.x = constrainAbs(twist.linear.x, MAX_SPD_LINEAR)
-        twist.angular.z = constrainAbs(twist.angular.z, MAX_SPD_ANGULAR)
+    # ゴール判定
+    GOAL_TOLERANCE = 0.1
+    return (distance <= GOAL_TOLERANCE)
 
-        # 速度司令
-        pub_vel.publish(twist)
-
-        # ゴールまでの距離を算出
-        GOAL_POS_X = 5.0
-        GOAL_POS_Y = 1.3
-        model_state = gazebo_model_get_state("turtlebot3_burger", 'world')
-        gazebo_pos = model_state.pose.position
-        distance = math.sqrt((GOAL_POS_X - gazebo_pos.x)**2 + (GOAL_POS_Y - gazebo_pos.y)**2)
-
-        # ゴール判定
-        GOAL_TOLERANCE = 0.1
-        if (distance <= GOAL_TOLERANCE) and is_goal == False:
-            print(count / LOOP_HZ)
-            is_goal = True
-
-        count += 1
-        rate.sleep()
 
 
 
@@ -216,7 +218,7 @@ class Pose2D():
     # @brief このベクトルの長さの2乘を返す
     # @return このベクトルの長さ2乘
     def sqrMagnitude(self):
-        return  self.x**2+self.y**2
+        return self.x ** 2 + self.y ** 2
 
     ##
     # @brief 2つのベクトルの内積を返す
@@ -598,6 +600,76 @@ class PPC:
         return self.__output
 
 
+class RosMsgConverter:
+    ##
+    # @brief ROSのメッセージ型へ変換
+    # @return geometry_msgs/Twist Message
+    @staticmethod
+    def toRosTwist(my_msg):
+        twist = geometry_msgs.msg.Twist()
+        twist.linear.x = my_msg.x
+        twist.linear.y = my_msg.y
+        twist.angular.z = my_msg.theta
+        return twist
+
+    ##
+    # @brief ROSのメッセージ型へ変換
+    # @return geometry_msgs/Pose Message
+    @staticmethod
+    def toRosPose(my_msg):
+        pose = geometry_msgs.msg.Pose()
+        pose.position.x = my_msg.x
+        pose.position.y = my_msg.y
+        q = tf.transformations.quaternion_from_euler(0, 0, my_msg.theta)
+        pose.orientation = geometry_msgs.msg.Quaternion(x=q[0], y=q[1], z=q[2], w=q[3])
+        return pose
+
+    ##
+    # @brief ROSのメッセージ型へ変換
+    # @return geometry_msgs/Pose2D Message
+    @staticmethod
+    def toRosPose2D(my_msg):
+        pose2d = geometry_msgs.msg.Pose2D()
+        pose2d.x = my_msg.x
+        pose2d.y = my_msg.y
+        pose2d.theta = my_msg.theta
+        return pose2d
+
+    ##
+    # @brief ROSのメッセージ型へ変換
+    # @return geometry_msgs/PoseStamped Message
+    @staticmethod
+    def toRosPoseStamped(my_msg, frame_id, stamp = None):
+        pose_stamped = geometry_msgs.msg.PoseStamped()
+        pose_stamped.header.frame_id = frame_id
+        pose_stamped.header.stamp = rospy.Time.now()
+        pose_stamped.pose = RosMsgConverter.toRosPose(my_msg)
+        return pose_stamped
+
+    ##
+    # @brief ROSのメッセージ型へ変換
+    # @return geometry_msgs/PoseArray Message
+    @staticmethod
+    def toRosPoseArray(my_msg, frame_id, stamp = None):
+        pose_array = geometry_msgs.msg.PoseArray()
+        pose_array.header.frame_id = frame_id
+        pose_array.header.stamp = rospy.Time.now()
+        for pose in my_msg:
+            pose_array.poses.append(RosMsgConverter.toRosPose(pose))
+        return pose_array
+
+    ##
+    # @brief ROSのメッセージ型へ変換
+    # @return nav_msgs/Path Message
+    @staticmethod
+    def toRosPath(my_msg, frame_id, stamp = None):
+        path = nav_msgs.msg.Path()
+        path.header.frame_id = frame_id
+        path.header.stamp = rospy.Time.now()
+        for pose in my_msg:
+            path.poses.append(RosMsgConverter.toRosPoseStamped(pose, "map"))
+        return path
+
 
 def constrain(x, min, max):
     if x < min:
@@ -608,17 +680,6 @@ def constrain(x, min, max):
 
 def constrainAbs(x, max):
     return constrain(x, -max, max)
-
-# 自己位置を初期化
-def initPose():
-    pub_initialpose = rospy.Publisher('initialpose', gm.PoseWithCovarianceStamped, queue_size=100)
-    rospy.sleep(1.0)
-    init_pose = gm.PoseWithCovarianceStamped()
-    init_pose.header.frame_id = 'map'
-    init_pose.header.stamp = rospy.Time.now()
-    init_pose.pose.pose.orientation.w = 1
-    pub_initialpose.publish(init_pose)
-
 
 
 if __name__ == '__main__':

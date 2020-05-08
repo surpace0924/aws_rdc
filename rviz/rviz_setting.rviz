@@ -387,22 +387,6 @@ Visualization Manager:
       Unreliable: false
       Value: true
     - Alpha: 1
-      Arrow Length: 0.300000012
-      Axes Length: 0.300000012
-      Axes Radius: 0.00999999978
-      Class: rviz/PoseArray
-      Color: 255; 0; 127
-      Enabled: false
-      Head Length: 0
-      Head Radius: 0
-      Name: PoseArray
-      Shaft Length: 0.0299999993
-      Shaft Radius: 0.0299999993
-      Shape: Arrow (3D)
-      Topic: /trajectory_arry
-      Unreliable: false
-      Value: false
-    - Alpha: 1
       Axes Length: 1
       Axes Radius: 0.100000001
       Class: rviz/Pose
@@ -417,6 +401,48 @@ Visualization Manager:
       Topic: /terget_pos
       Unreliable: false
       Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 85; 0; 0
+      Enabled: true
+      Head Diameter: 0.300000012
+      Head Length: 0.200000003
+      Length: 0.300000012
+      Line Style: Lines
+      Line Width: 0.0299999993
+      Name: Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Radius: 0.0299999993
+      Shaft Diameter: 0.100000001
+      Shaft Length: 0.100000001
+      Topic: /my_path
+      Unreliable: false
+      Value: true
+    - Class: jsk_rviz_plugin/PieChart
+      Enabled: true
+      Name: PieChart
+      Topic: /game_time
+      Value: true
+      auto color change: false
+      background color: 0; 0; 0
+      backround alpha: 0
+      foreground alpha: 0.800000012
+      foreground alpha 2: 0.400000006
+      foreground color: 25; 255; 240
+      left: 10
+      max color: 255; 0; 0
+      max value: 30
+      min value: 0
+      show caption: false
+      size: 100
+      text size: 17
+      top: 10
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -447,7 +473,7 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Scale: 114.83197
+      Scale: 126.759789
       Target Frame: <Fixed Frame>
       Value: TopDownOrtho (rviz)
       X: 2.67263055
