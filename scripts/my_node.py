@@ -23,7 +23,7 @@ MAX_SPD_LINEAR = 0.22  # [m/s]
 MAX_SPD_ANGULAR = 2.84  # [rad/s]
 
 # 制御周期
-LOOP_HZ = 30.0
+LOOP_HZ = 15.0
 
 def main():
     rospy.init_node('my_node')
@@ -83,6 +83,13 @@ def initPose():
     init_pose.header.frame_id = 'map'
     init_pose.header.stamp = rospy.Time.now()
     init_pose.pose.pose.orientation.w = 1
+    init_pose.pose.covariance = [0.0001, 0.0, 0.0, 0.0, 0.0, 0.0,\
+                                 0.0, 0.0001, 0.0, 0.0, 0.0, 0.0,\
+                                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,\
+                                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,\
+                                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,\
+                                 0.0, 0.0, 0.0, 0.0, 0.0, np.deg2rad(1.0)]
+
     pub_initialpose.publish(init_pose)
     rospy.sleep(3.0)
     print("Start")
